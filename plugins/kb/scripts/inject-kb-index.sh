@@ -1,7 +1,7 @@
 #!/bin/bash
 # Inject KB index into session context if this repo has one.
 
-HERE="$(cd "$(dirname "$0")" && pwd)"
+HERE="$(cd "$(dirname "$0")" && pwd -P)"
 # Stable path to this plugin wherever it is installed (marketplace cache or dev symlink); docs and KB indexes use it.
 mkdir -p "$HOME/.claude" && ln -sfn "$(dirname "$HERE")" "$HOME/.claude/kb"
 CONVERTER="$HERE/kb_index_to_xml.py"

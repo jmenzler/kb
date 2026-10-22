@@ -249,3 +249,11 @@ def test_related_does_not_repeat_within_session(tmp_path):
     shown_second = {l.split()[0] for l in json.loads(second)["hookSpecificOutput"]["additionalContext"].splitlines()[1:]} if second else set()
     assert not (shown_first & shown_second) and "doc0" not in shown_second
     assert related(kb, "f2/doc2.md", "s2", tmp_path)  # a new session starts fresh
+
+
+def test_stable_link_survives_running_through_the_link(tmp_path):
+    env = {**{k: v for k, v in os.environ.items() if not k.startswith("KB_")}, "HOME": str(tmp_path)}
+    subprocess.run(["bash", str(INJECT)], cwd=tmp_path, capture_output=True, text=True, env=env)
+    via_link = tmp_path / ".claude" / "kb" / "scripts" / "inject-kb-index.sh"
+    subprocess.run(["bash", str(via_link)], cwd=tmp_path, capture_output=True, text=True, env=env)
+    assert (tmp_path / ".claude" / "kb").resolve() == SCRIPTS.parent.resolve()
