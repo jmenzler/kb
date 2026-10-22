@@ -85,7 +85,7 @@ content comes later via `capture` (stage to inbox) + `clean` (reconcile into KB)
      |-----|------------------|---------|------|
      | `features.router` | How messages are routed to the KB. `on` = local model, with the uncertain ~30% sent to TypeSafe Jev: the message, the last ~1,200 chars of the previous reply and a KB summary (index descriptions + doc names) go to `api.typesafe.ai`. `local` = never leaves the machine. `off` = keyword matching only | `on` | **ask** (say what is sent) |
      | `features.capture` | Automatic capture: background forks review the session at session end, after idle and before compaction, and write drafts into `inbox/`. Each fork costs money (capped at `capture.max_budget_usd`, typically well under it) and its drafts trigger clean nudges | `true` | **ask** (cost + inbox drafts) |
-     | `features.prompt_gate` | Read gate on KB-related messages: `gate` (enforced), `hint` (advisory only), `off` | `gate` | default; mention |
+     | `features.prompt_gate` | Read gate on KB-related messages: `gate` (enforced), `hint` (advisory only), `off` | `hint` | default; mention |
      | `features.index_inject`, `related_docs`, `topic_validation` | `<kb-index>` at session start; related docs after a KB Read; topic checks on index writes | `true` | default |
      | `features.clean_nudge` | Whether a due incremental clean is raised with the user after the first reply | `true` | **ask** (on/off) |
      | `related_hops` | After a KB Read, how many hops of related docs to surface — `1` = directly-related only, `2` = also friends-of-friends (richer but more tokens/Read) | `2` | **ask** |
@@ -108,7 +108,7 @@ content comes later via `capture` (stage to inbox) + `clean` (reconcile into KB)
        "_note": "Local KB settings (.kb is gitignored), layered over ~/.claude/kb-config.json (kb_config.py show). features: per-repo switches for the hooks. related_hops: 1 = direct related docs only after a KB Read; 2 = also friends-of-friends. clean: clean-due thresholds + wording of the ask (kb-clean-due.py). obsidian: vault view (kb-obsidian.py).",
        "features": {
          "index_inject": true,
-         "prompt_gate": "gate",
+         "prompt_gate": "hint",
          "router": "on",
          "related_docs": true,
          "topic_validation": true,

@@ -22,7 +22,7 @@ from pathlib import Path
 
 GLOBAL_CONFIG = Path.home() / ".claude" / "kb-config.json"
 DEFAULTS = {
-    "features": {"index_inject": True, "prompt_gate": "gate", "router": "cascade", "related_docs": True,
+    "features": {"index_inject": True, "prompt_gate": "hint", "router": "cascade", "related_docs": True,
                  "topic_validation": True, "capture": True, "clean_nudge": True},
     "router": {"band": None, "local_timeout_s": 0.3, "jev_timeout_s": 1.0},
     "capture": {"min_turns": 5, "idle_minutes": 45, "cold_minutes": 55, "inbox_cap": 30,

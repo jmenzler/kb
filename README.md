@@ -131,7 +131,7 @@ Settings layer as environment > repository (`.claude/knowledge/.kb/config.json`)
 ```json
 {
   "features": {
-    "prompt_gate": "gate",
+    "prompt_gate": "hint",
     "router": "cascade",
     "related_docs": true,
     "capture": true

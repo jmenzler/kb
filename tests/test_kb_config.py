@@ -30,7 +30,7 @@ def make_kb(repo: Path, cfg: dict | None = None) -> Path:
 def test_defaults_without_any_config(env):
     kb = make_kb(env / "repo")
     assert kb_config.feature("capture", kb) is True
-    assert kb_config.feature("prompt_gate", kb) == "gate"
+    assert kb_config.feature("prompt_gate", kb) == "hint"
     assert kb_config.feature("router", kb) == "cascade"
     assert kb_config.load(kb)["capture"]["min_turns"] == 5
 

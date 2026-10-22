@@ -371,7 +371,7 @@ Every key is optional. Defaults:
 {
   "features": {
     "index_inject": true,
-    "prompt_gate": "gate",
+    "prompt_gate": "hint",
     "router": "cascade",
     "related_docs": true,
     "topic_validation": true,

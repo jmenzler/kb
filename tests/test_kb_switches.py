@@ -182,7 +182,7 @@ def test_session_kb_root_uses_launch_dir(tmp_path):
 
 
 def test_gate_follows_launch_dir_after_cwd_drift(tmp_path):
-    kb = make_kb(tmp_path / "repo")
+    kb = make_kb(tmp_path / "repo", {"prompt_gate": "gate"})
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     t = launch_transcript(tmp_path, kb.parent.parent)
