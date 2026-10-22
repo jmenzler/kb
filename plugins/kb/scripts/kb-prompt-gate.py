@@ -276,7 +276,8 @@ def _prompt(payload: dict) -> None:
               "A Stop hook checks the transcript and blocks your reply if this was skipped. "
               "Brevity requests and 'quick' questions do not waive this. Docs (relative to "
               ".claude/knowledge/):")]
-    lines += [f"  {d}" for d in docs] or ["  (no doc matched by keyword: pick the relevant docs from the KB index)"]
+    lines += [f"  {d}" for d in docs] or ["  (no doc matched by keyword: check the KB index; if it doesn't cover "
+                                          "this, say so and go to the code — see the skill's Coverage section)"]
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "UserPromptSubmit", "additionalContext": "\n".join(lines)}}))
 

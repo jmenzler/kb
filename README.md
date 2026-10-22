@@ -34,6 +34,8 @@ back into the knowledge base on its own.
 - **Routing gate** — every prompt is classified in ~30 ms by a local model, with TypeSafe Jev for unsure cases;
   KB-relevant prompts must read the matching docs first.
 - **Related docs** — reading a doc surfaces up to four unread docs from other folders that share its topics.
+- **Coverage awareness** — the index also shows what is *not* documented: Claude says so, goes straight to the
+  code, and the finding becomes capture material instead of a guess.
 - **Automatic capture** — a cached background fork of the session stages earned knowledge into the inbox at
   session end, after idle time or before compaction.
 - **Curated, not appended** — `/kb:clean` reconciles the inbox into current-state docs and flags docs whose
