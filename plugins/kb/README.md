@@ -429,7 +429,7 @@ and `obsidian` settings (read by `kb-obsidian.py`).
 
 ## Reference docs
 
-- `SKILL.md` — the routing contract Claude follows.
+- `skills/base/SKILL.md` — the routing contract Claude follows (`kb:base`); `workflows/format.md` holds the on-disk layout.
 - `STYLE.md` — how KB docs are written (atomic, declarative, why-not-what).
 - `TOPIC_GUIDE.md` — the topic-tag system.
 - `workflows/*.md` — the maintenance playbooks.

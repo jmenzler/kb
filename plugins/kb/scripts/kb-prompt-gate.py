@@ -268,14 +268,11 @@ def _prompt(payload: dict) -> None:
     if gate:
         gate.parent.mkdir(parents=True, exist_ok=True)
         gate.write_text(json.dumps({"docs": docs}))
-    lines = [("[KB MATCH] This message touches the knowledge base. MANDATORY PAUSE. Your "
-              "FIRST tool call must be the Skill tool with skill=kb:base; follow its "
-              "MANDATORY section. Then Read the relevant docs below WHOLE (Read with no "
-              "offset/limit — grep, sed or partial reads do not count), then every relevant "
-              "doc their reads surface, until a pass surfaces nothing new. Only then answer. "
-              "A Stop hook checks the transcript and blocks your reply if this was skipped. "
-              "Brevity requests and 'quick' questions do not waive this. Docs (relative to "
-              ".claude/knowledge/):")]
+    lines = [("[KB MATCH] This message touches the knowledge base. Your FIRST tool call must be the Skill tool "
+              "with skill=kb:base; follow its Coverage and reading rules. Read the relevant docs below WHOLE (no "
+              "offset/limit), then every relevant doc their reads surface, until nothing new comes up; check claims "
+              "about current behaviour against the code. A Stop hook blocks the reply once if this was skipped. "
+              "Docs (relative to .claude/knowledge/):")]
     lines += [f"  {d}" for d in docs] or ["  (no doc matched by keyword: check the KB index; if it doesn't cover "
                                           "this, say so and go to the code — see the skill's Coverage section)"]
     print(json.dumps({"hookSpecificOutput": {
