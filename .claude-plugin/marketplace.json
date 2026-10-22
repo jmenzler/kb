@@ -1,5 +1,14 @@
 {
   "name": "kb-marketplace",
-  "owner": {"name": "jmenzler"},
-  "plugins": [{"name": "kb", "source": "./plugins/kb", "description": "Project knowledge bases for Claude Code"}]
+  "owner": {
+    "name": "jmenzler"
+  },
+  "plugins": [
+    {
+      "name": "kb",
+      "source": "./plugins/kb",
+      "description": "Project knowledge bases for Claude Code"
+    }
+  ],
+  "description": "kb: project knowledge bases for Claude Code (routing gate, related docs, automatic capture)"
 }
