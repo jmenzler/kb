@@ -1,107 +1,173 @@
-# kb — a knowledge base Claude Code actually uses
+<div align="center">
 
-Claude Code forgets everything between sessions, and a `docs/` folder only helps if Claude thinks to read it.
-**kb** gives each repository a curated knowledge base in `.claude/knowledge/` and makes it part of every
-session: prompts that touch project knowledge make Claude read the relevant docs first, related docs surface as
-it reads, and findings worked out during a session — root causes, measured results, decisions and their reasons —
-are captured back into the knowledge base automatically.
+# kb
 
-## Install
+**A knowledge base Claude Code actually uses.**
 
-```bash
+[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-D97757)](#getting-started)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-3776AB)](#requirements)
+[![Dependencies: stdlib](https://img.shields.io/badge/dependencies-stdlib_only-success)](#requirements)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+[Overview](#overview) · [Features](#features) · [Getting started](#getting-started) · [How it works](#how-it-works) · [Configuration](#configuration) · [Privacy](#privacy)
+
+</div>
+
+## Overview
+
+Claude Code forgets everything between sessions, and a `docs/` folder only helps if Claude thinks to open it.
+**kb** gives each repository a curated knowledge base in `.claude/knowledge/` and wires it into every session:
+prompts that touch project knowledge make Claude read the relevant docs before answering, related docs surface
+as it reads, and what a session works out — root causes, measured results, decisions and their reasons — flows
+back into the knowledge base on its own.
+
+```text
+ your prompt ──▶ router ──▶ needs the KB? ──yes──▶ read the matching docs ──▶ answer
+                                │                         │
+                                no                  related docs surface
+                                ▼
+                             answer          session ends ──▶ background capture ──▶ inbox ──▶ /kb:clean ──▶ KB
+```
+
+## Features
+
+- **Routing gate** — every prompt is classified in ~30 ms by a local model, with TypeSafe Jev for unsure cases;
+  KB-relevant prompts must read the matching docs first.
+- **Related docs** — reading a doc surfaces up to four unread docs from other folders that share its topics.
+- **Automatic capture** — a cached background fork of the session stages earned knowledge into the inbox at
+  session end, after idle time or before compaction.
+- **Curated, not appended** — `/kb:clean` reconciles the inbox into current-state docs and flags docs whose
+  source code has moved.
+- **Graph queries** — ask what calls X or how A and B connect across the code graph and the topic graph.
+- **Switchable** — every feature can be turned off or tuned globally, per repository or per environment variable.
+
+## Getting started
+
+### Requirements
+
+- [Claude Code](https://docs.claude.com/en/docs/claude-code)
+- Python ≥ 3.9 and `git` (all scripts are standard-library only)
+- Optional: [`uv`](https://docs.astral.sh/uv/) for the local prompt classifier, and a
+  [TypeSafe](https://typesafe.ai) API key for Jev
+
+### Install
+
+```sh
 claude plugin marketplace add <this-repo-url>
 claude plugin install kb@kb-marketplace
 ```
 
-Start a new session, then once:
+Start a new session, then run the setup check once:
 
-```bash
+```sh
 python3 ~/.claude/kb/scripts/install.py
 ```
 
-This sets the one environment variable plugins cannot set, removes old hook copies if you used kb before it was a
-plugin, and reports missing tools. Requires Python ≥ 3.9 and `git`; everything else is optional:
+It sets the one environment variable a plugin cannot set, removes hook copies left from pre-plugin versions, and
+lists anything missing.
 
-| optional | enables | without it |
-|---|---|---|
-| `uv` | local prompt classifier (downloads Qwen3-Embedding-0.6B, ~1.2 GB, on first use) | keyword matching |
-| TypeSafe key in `$TYPESAFE_API_KEY` or `~/.config/typesafe/api_key` | Jev for prompts the local classifier is unsure about | local classifier decides alone |
+> [!NOTE]
+> The first prompt in a repository with a knowledge base starts the local classifier, which downloads
+> Qwen3-Embedding-0.6B (~1.2 GB) once. Until it is ready, prompts are routed by Jev or by keyword matching.
 
-**Create a knowledge base** in a repository by asking Claude to "init a KB here" (or "bootstrap a KB from this
-codebase" for an existing project). It writes `.claude/knowledge/` with an `index.json`, topic folders and an inbox.
+### Create a knowledge base
+
+Open Claude Code in your repository and ask:
+
+```text
+init a KB here
+```
+
+For an existing codebase, `bootstrap a KB from this codebase` drafts docs from the code structure first. Both
+write `.claude/knowledge/` with an `index.json`, topic folders and an inbox.
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `/kb:base` | Route a question to the KB, run graph queries, or start init / bootstrap / sources workflows |
+| `/kb:capture` | Stage a finding in the inbox ("capture this") |
+| `/kb:clean` | Reconcile the inbox and audit changed docs; `--full` re-audits the whole KB |
+
+> [!TIP]
+> Put `??` anywhere in a prompt to force the gate when the router lets something through.
 
 ## How it works
 
 ### A knowledge base per repository
 
 `.claude/knowledge/index.json` maps topics to folders of short markdown docs. Each doc carries topic tags and
-`sources:` frontmatter pointing at the code or files it describes. The index can also declare other sources
-(code search, SQL, RAG, MCP tools) with when to use each. At session start the index is injected into context,
-so Claude can route without reading files.
+`sources:` frontmatter that points at the code or files it describes, which is how `/kb:clean` notices drift.
+The index can also declare other sources (code search, SQL, RAG, MCP tools) and when to use each. The index is
+injected at session start, so Claude can route without reading files. Worktrees share the main checkout's KB.
 
-### The routing gate
-
-Every prompt is classified: does answering it need project knowledge?
+### Routing
 
 1. A local classifier (Qwen3-Embedding + logistic regression, kept warm by a small daemon) decides confident
-   cases in ~30 ms.
-2. Prompts it is unsure about (~30–40%) go to TypeSafe's Jev (~250 ms).
+   prompts in ~30 ms.
+2. Prompts it is unsure about (~30–40%) go to Jev (~250 ms).
 3. If neither is available, keyword matching against the index decides.
 
-On held-out real messages this routes 90% of KB-relevant prompts to the KB and skips 84–86% of the rest. A routed prompt gets a
-read list, other tools are blocked until Claude has invoked the `kb:base` skill, and a reply that skipped the
-reading is sent back once. `??` anywhere in a prompt forces the gate.
+On held-out real messages this sends 90% of KB-relevant prompts to the KB and skips 84–86% of the rest. A routed
+prompt gets a read list; other tools are blocked until Claude invokes `kb:base`, and a reply that skipped the
+reading is sent back once.
 
-### Related docs
+### Automatic capture
 
-After Claude reads a KB doc, it is shown up to four docs from other folders that share its topics and that it
-has not seen yet this session, so knowledge split across docs gets read together.
+Once a session has five or more turns, a fork of it — same model, so it reuses the session's prompt cache
+(~$0.10–0.25 per fork) — reviews the conversation at session end, after 45 idle minutes, or before compaction.
+It keeps only *earned* knowledge (root causes, measured results, decisions with reasons, refuted assumptions),
+skips lookups, generic knowledge and task progress, deduplicates against the KB and inbox, and writes one small
+draft per claim. The fork is sandboxed to reading and writing inbox drafts. Your next prompt gets a one-line note
+of what it captured.
 
-### Keeping the knowledge base current
+## Configuration
 
-- **Inbox** — new knowledge lands as drafts in `.claude/knowledge/inbox/`; nothing writes straight into the KB.
-- **`/kb:clean`** — reconciles the inbox into the docs (adds, updates or supersedes; the KB stays current-state
-  only), checks links and provenance, and flags docs whose source code has moved. It is suggested automatically
-  when enough has changed.
-- **`/kb:capture`** — stage a finding on request ("capture this").
-- **Automatic capture** — at session end, after 45 idle minutes or before compaction, a background fork of the
-  session (same model, so it reuses the prompt cache: ~$0.10–0.25) reviews the conversation and stages drafts
-  for *earned* knowledge only: root causes, measured results, decisions with reasons, refuted assumptions — not
-  lookups, generic knowledge or task progress. It is sandboxed to reading and writing inbox drafts. Your next
-  prompt gets a one-line note of what it captured.
-
-### Configuration
-
-Every feature can be switched off or tuned globally (`~/.claude/kb-config.json`), per repository
-(`.claude/knowledge/.kb/config.json`) or by environment variable (`KB_HOOKS=off` disables everything):
+Settings layer as environment > repository (`.claude/knowledge/.kb/config.json`) > global
+(`~/.claude/kb-config.json`) > defaults. Every key is optional:
 
 ```json
 {
-  "features": {"prompt_gate": "gate", "router": "cascade", "related_docs": true, "capture": true},
-  "capture": {"min_turns": 5, "idle_minutes": 45, "model": "session", "daily_soft_cap_usd": 3.0}
+  "features": {
+    "prompt_gate": "gate",
+    "router": "cascade",
+    "related_docs": true,
+    "capture": true
+  },
+  "capture": { "min_turns": 5, "idle_minutes": 45, "model": "session", "daily_soft_cap_usd": 3.0 },
+  "jev": { "key_env": "TYPESAFE_API_KEY", "key_file": "~/.config/typesafe/api_key" }
 }
 ```
 
-`router` picks who classifies prompts: `cascade` (local, Jev when unsure), `local` (nothing leaves the
-machine), `jev` (Jev for every prompt) or `off` (keywords). `python3 ~/.claude/kb/scripts/kb_config.py show`
-prints the effective settings and where each comes from.
+| `features.router` | Who classifies prompts | Leaves your machine |
+|---|---|---|
+| `cascade` (default) | local model; Jev when it is unsure | the unsure ~30–40% |
+| `local` | local model only | nothing |
+| `jev` | Jev for every prompt | every prompt |
+| `off` | keyword matching | nothing |
 
-### Privacy
+`KB_HOOKS=off` disables everything for a shell. Inspect the effective settings and where each comes from:
 
-- With `router: cascade` or `jev`, the prompt, the end of Claude's previous reply and a summary of the KB index
-  are sent to TypeSafe for the prompts Jev classifies. `router: local` keeps everything on your machine.
-- Automatic capture runs on your own Claude account, like the session itself.
-- The TypeSafe key is read from an environment variable or a key file, never from a config file in a repository.
+```sh
+python3 ~/.claude/kb/scripts/kb_config.py show
+```
 
-Full reference — every hook, script, workflow and setting: [`plugins/kb/README.md`](plugins/kb/README.md).
+The full reference — every hook, script, workflow and setting — is in [`plugins/kb/README.md`](plugins/kb/README.md).
+
+## Privacy
+
+With `router: cascade` or `jev`, the prompt, the end of Claude's previous reply and a summary of the KB index are
+sent to TypeSafe for the prompts Jev classifies. `router: local` keeps routing entirely on your machine.
+Automatic capture runs on your own Claude account, like the session it forks.
+
+> [!IMPORTANT]
+> Never put the TypeSafe key in a config file. `jev.key_env` names the environment variable to read it from;
+> otherwise it is read from `jev.key_file`. Both are honoured only in the global config, so a repository cannot
+> redirect where the key is read from.
 
 ## Development
 
-```bash
-ln -s "$PWD/plugins/kb" ~/.claude/skills/kb     # load the working copy in place (kb@skills-dir)
+```sh
+ln -s "$PWD/plugins/kb" ~/.claude/skills/kb    # load the working copy in place (kb@skills-dir)
 uv run --no-project --with pytest python -m pytest -q tests
 ```
-
-## License
-
-MIT
