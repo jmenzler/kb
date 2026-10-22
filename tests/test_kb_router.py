@@ -126,3 +126,10 @@ def test_band_comes_from_config(kb, monkeypatch):
     monkeypatch.setattr(kb_router, "local_p", _local(0.5))
     monkeypatch.setattr(kb_router, "jev_p", lambda *a, **k: pytest.fail("band 0 means the local model always decides"))
     assert kb_router.decide("x", None, kb)["source"] == "local"
+
+
+def test_secret_in_message_never_goes_to_jev(kb, monkeypatch):
+    monkeypatch.setattr(kb_router, "local_p", _local(0.5))
+    monkeypatch.setattr(kb_router, "jev_p", lambda *a, **k: pytest.fail("a message with a secret must not reach Jev"))
+    d = kb_router.decide("why does auth fail with ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789 ?", None, kb)
+    assert d["source"] == "local-fallback" and d["redacted"] is True

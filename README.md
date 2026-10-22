@@ -158,6 +158,11 @@ The full reference — every hook, script, workflow and setting — is in [`plug
 
 With `router: cascade` or `jev`, the prompt, the end of Claude's previous reply and a summary of the KB index are
 sent to TypeSafe for the prompts Jev classifies. `router: local` keeps routing entirely on your machine.
+
+Everything sent to Jev is scrubbed first (`scripts/kb_redact.py`): provider API keys, bearer tokens, JWTs,
+private keys, credentials in URLs, `password=`/`token:`-style values, long random strings, email addresses, and
+the exact values of any environment variable named like a key, token, secret or password. A prompt that itself
+contains a secret is never sent: the local classifier decides it. The local router log is masked the same way.
 Automatic capture runs on your own Claude account, like the session it forks.
 
 > [!IMPORTANT]

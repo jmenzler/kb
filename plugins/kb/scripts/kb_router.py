@@ -21,6 +21,7 @@ import urllib.request
 from pathlib import Path
 
 import kb_config
+import kb_redact
 
 HERE = Path(__file__).resolve().parent
 GATE_DIR = Path.home() / ".claude" / "kb-gate"
@@ -109,6 +110,7 @@ def jev_p(message: str, prev: str, kb_text: str, cfg: dict, timeout: float = JEV
     key = kb_config.jev_key()
     if not key:
         return None
+    message, prev, kb_text = (kb_redact.redact(t)[0] for t in (message, prev, kb_text))
     body = json.dumps({"model": cfg["model"], "questions": cfg["questions"],
                        "state": {"kb": kb_text, "previous_turn": prev or "(none)", "user_message": message}}).encode()
     req = urllib.request.Request(JEV_URL, body, {"Content-Type": "application/json",
@@ -140,7 +142,11 @@ def decide(message: str, transcript: str | None, kb_root: Path) -> dict | None:
         prev = previous_turn(transcript, jev_cfg["prev_chars"])
         return jev_p(message, prev, kb_summary(kb_root, jev_cfg["docs_per_folder"]), jev_cfg, cfg["jev_timeout_s"])
 
-    out: dict = {"mode": mode}
+    # A message carrying a secret never leaves the machine: the local model decides it.
+    secret_in_message = kb_redact.redact(message)[1] > 0
+    if secret_in_message and mode in ("cascade", "jev"):
+        mode = "local"
+    out: dict = {"mode": mode, "redacted": secret_in_message}
     p_local = None if mode == "jev" else local_p(message, cfg["local_timeout_s"])
     uncertain = p_local is None or abs(_logit(p_local) - _logit(local_cfg["cut"])) <= band
     if mode != "jev" and not uncertain:
@@ -161,6 +167,8 @@ def decide(message: str, transcript: str | None, kb_root: Path) -> dict | None:
 
 
 def log(record: dict) -> None:
+    if isinstance(record.get("text"), str):
+        record = {**record, "text": kb_redact.redact(record["text"])[0]}
     try:
         GATE_DIR.mkdir(parents=True, exist_ok=True)
         with LOG.open("a") as f:

@@ -338,7 +338,10 @@ message, rotated at 5 MB; written only in repos with a KB and the router on).
 **Privacy.** For messages in the uncertain band, `api.typesafe.ai` receives the user
 message, the last ~1,200 characters of the previous assistant turn, and a KB summary
 (index descriptions and doc names). `router: "local"` keeps everything on the machine;
-`router: "off"` uses keywords only and never starts the daemon.
+`router: "off"` uses keywords only and never starts the daemon. All of it is scrubbed first by
+`scripts/kb_redact.py` (provider keys, bearer tokens, JWTs, private keys, URL credentials, `password=`-style
+values, long random strings, emails, exact values of secret-named env vars); a message that itself contains a
+secret is decided locally and never sent. The router log is masked the same way.
 
 **Automatic capture.** Once a session segment has `min_turns` user turns, a background
 `claude -p --resume <sid> --fork-session` fork on the session's own model (reusing its
