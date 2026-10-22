@@ -284,8 +284,8 @@ This folder is the `kb` Claude Code plugin: skills `kb:base`, `kb:capture`, `kb:
 everything else is optional and degrades gracefully.
 
 ```bash
-# any machine: install from the repo's marketplace (git URL or a local clone)
-claude plugin marketplace add <git-url-or-path-of-the-kb-repo>
+# any machine (in Claude Code: /plugin install kb --marketplace jmenzler/kb)
+claude plugin marketplace add jmenzler/kb
 claude plugin install kb@kb-marketplace
 
 # development: load the working copy in place instead (edits are live next session or after /reload-plugins)

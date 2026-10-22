@@ -53,7 +53,7 @@ back into the knowledge base on its own.
 ### Install
 
 ```sh
-claude plugin marketplace add <this-repo-url>
+claude plugin marketplace add jmenzler/kb
 claude plugin install kb@kb-marketplace
 ```
 
