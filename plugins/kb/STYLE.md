@@ -47,6 +47,22 @@ when reconciling the inbox and rewrites existing docs that violate it.
   whole functions. Point to the file instead.
 - **Provenance.** Set `sources:` frontmatter to the files/commit the doc derives from.
 
+## Point to live values; don't copy them
+
+A value the code or config owns (asset lists and counts, thresholds, defaults, limits, timeouts, enabled
+flags, which checks run) goes stale the moment someone edits that file, and a stale copy is worse than none:
+the reader trusts it over the code. Name where the value lives and what it means instead.
+
+| Copy (goes stale) | Pointer (stays true) |
+|---|---|
+| "The scheduler runs 12 workers." | "Worker count: `config/app.yaml` → `scheduler.workers`." |
+| "Retries back off at 1 s, 5 s and 30 s." | "Retry schedule: `RETRY_DELAYS` in `src/net/retry.py`; the last step gives up and alerts." |
+| "`max_batch` defaults to 500." | "`max_batch` (`config/app.yaml`) caps one write; raising it trades latency for throughput." |
+
+Numbers that stay true are fine: a **dated measurement** with its conditions ("2026-06-12 load test, n=74 runs:
+p95 41 ms"), a **historical decision** ("lowered to 200 on 2026-07-10 because …"), a **physical or
+protocol constant**. Keep the *why* a value is what it is; leave the value itself in the file that owns it.
+
 ## Index descriptions are routing lines, not summaries
 
 A doc's prose states the answer; its **index description states the question**. The two
@@ -97,5 +113,6 @@ answer.
 | Pasted code blocks | Replace with conceptual description + file path |
 | Hedging / speculation | Delete or move to `status-gaps.md` |
 | Duplicated content across docs | Consolidate; one canonical home |
+| Copied live value ("runs 12 assets", "defaults to 0.05") | Pointer to the file/key that owns it + what it means; keep dated measurements |
 | Vague identifiers ("the handler") | Name the exact symbol/file |
 | Restating the heading in the first sentence | Delete the restatement |

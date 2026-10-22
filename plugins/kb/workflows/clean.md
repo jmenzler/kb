@@ -108,6 +108,10 @@ harvested lesson as an inbox delta draft — same draft shape the inbox uses:
 > the smallest self-contained claim, KB style (`STYLE.md`), **not** a diff and **not** the whole
 > doc. One concept per file.
 
+Copied live values count as drift even when they still match: a count, threshold, default, limit or
+list that a code/config file owns (`STYLE.md` § Point to live values) is rewritten as a pointer to that
+file/key plus what it means. Dated measurements and historical decisions stay.
+
 Triage bar: a doc correctly labeled *deferred*/*historical*/*research* is not drift, and a
 generated/gitignored config (rendered from a `.template`) or a deliberately-planned-but-unbuilt
 file is intentional, not a dead ref. Write nothing rather than noise.

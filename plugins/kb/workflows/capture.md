@@ -63,7 +63,9 @@ own what to stage. Its prompt gives the KB path, inbox path, result file and dat
    the KB already states it correctly or a draft already covers it. Skip anything a
    `[kb-capture]` note in the conversation says was captured.
 6. **Write at most 6 drafts**, one per claim, per the draft format. Body under 50 lines:
-   - **Claim** — one or two sentences, stated as current fact.
+   - **Claim** — one or two sentences, stated as current fact. A current config or code value
+     (count, threshold, default, list) is named by the file/key that owns it, not copied
+     (`STYLE.md` § Point to live values); numbers belong to dated measurements.
    - **Evidence** — the numbers, file:line, commands, commits or user statement that
      establish it.
    - **Why it matters** — the consequence or how to apply it.
