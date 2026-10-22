@@ -70,6 +70,13 @@ def inbox_for(project: Path) -> Path | None:
     return kb / "inbox" if kb_config.enabled("capture", kb) else None
 
 
+def fork_model(inbox: Path, entries: list[dict]) -> str:
+    """`capture.model`: "session" (default) reuses the session's model and so its prompt cache; any other value
+    is passed to --model as-is and pays for an uncached prompt."""
+    configured = settings(inbox)["model"]
+    return session_model(entries) if configured == "session" else configured
+
+
 def settings(inbox: Path) -> dict:
     """Capture thresholds from the layered KB config (`capture` block) of the inbox's KB."""
     return kb_config.load(Path(inbox).parent)["capture"]

@@ -31,7 +31,7 @@ def test_defaults_without_any_config(env):
     kb = make_kb(env / "repo")
     assert kb_config.feature("capture", kb) is True
     assert kb_config.feature("prompt_gate", kb) == "gate"
-    assert kb_config.feature("router", kb) == "on"
+    assert kb_config.feature("router", kb) == "cascade"
     assert kb_config.load(kb)["capture"]["min_turns"] == 5
 
 
@@ -112,3 +112,22 @@ def test_show_reports_sources(env, monkeypatch):
     monkeypatch.setenv("KB_HOOKS", "")
     shown = kb_config.show(kb)
     assert "router = local  (global)" in shown and "capture = False  (repo)" in shown and "related_docs = True  (default)" in shown
+
+
+def test_jev_key_from_env_then_file(env, monkeypatch):
+    key_file = env / "key"
+    key_file.write_text("file-key\n")
+    kb_config.GLOBAL_CONFIG.write_text(json.dumps({"jev": {"key_file": str(key_file), "key_env": "MY_KEY"}}))
+    assert kb_config.jev_key() == "file-key"
+    monkeypatch.setenv("MY_KEY", "env-key")
+    assert kb_config.jev_key() == "env-key"
+
+
+def test_repo_config_cannot_redirect_the_key(env):
+    kb = make_kb(env / "repo", {"jev": {"key_file": "/etc/passwd"}})
+    assert kb_config.load(kb)["jev"]["key_file"] == kb_config.DEFAULTS["jev"]["key_file"]
+
+
+def test_router_on_is_cascade(env, monkeypatch):
+    kb = make_kb(env / "repo", {"features": {"router": "on"}})
+    assert kb_config.feature("router", kb) == "cascade"

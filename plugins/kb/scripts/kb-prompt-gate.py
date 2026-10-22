@@ -220,8 +220,10 @@ def _sweep(now: float) -> None:
 def _route(prompt: str, payload: dict, keyword_tier: str | None, kb_root: Path) -> str | None:
     """Router verdict as a tier (GATE / None), or the keyword tier when no router answers."""
     import kb_router
+    import kb_config
     decision = kb_router.decide(prompt, payload.get("transcript_path"), kb_root)
-    if decision is None or decision.get("p_local") is None:
+    uses_local = kb_config.feature("router", kb_root) in ("cascade", "local")
+    if uses_local and (decision is None or decision.get("p_local") is None):
         kb_router.ensure_daemon()
     kb_router.log({"ts": round(time.time()), "session": payload.get("session_id"), "keyword": keyword_tier,
                    **(decision or {"source": "keyword"}), "text": prompt[:200]})

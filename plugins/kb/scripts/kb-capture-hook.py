@@ -41,7 +41,7 @@ def _stop(sid: str, payload: dict, now: float) -> None:
     _kill(kb_capture.load_state(sid).get("idle_pid"), sid)
     idle_pid = kb_capture._spawn([sys.executable, str(Path(__file__).resolve()), "idle", sid, str(now)])
     kb_capture.update_state(sid, transcript=payload["transcript_path"], cwd=payload.get("cwd") or str(project),
-                            inbox=str(inbox), model=kb_capture.session_model(entries),
+                            inbox=str(inbox), model=kb_capture.fork_model(inbox, entries),
                             last_reply_ts=now, idle_pid=idle_pid)
     kb_capture.sweep(now)
 

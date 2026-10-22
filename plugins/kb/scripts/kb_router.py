@@ -6,9 +6,8 @@
   order   local confident → local decision · local uncertain → Jev, or the local decision if Jev fails ·
           no local model → Jev · neither → None (the caller falls back to keyword matching)
 
-Configs: kb-router-local.json and kb-router.json (fitted offline). Jev key:
-~/.config/typesafe/api_key. Mode from kb_config feature `router` (on|local|off; env KB_ROUTER overrides): off = keyword gate, local = never Jev.
-Measured on 693 real test messages: local only .84 route / .84 skip; cascade .90 / .86 with ~30% sent to Jev.
+Configs: kb-router-local.json and kb-router.json (fitted offline). Mode, band and timeouts come from kb_config
+(`features.router`: cascade|local|jev|off, `router` block); the TypeSafe key from kb_config.jev_key().
 """
 from __future__ import annotations
 
@@ -28,7 +27,6 @@ GATE_DIR = Path.home() / ".claude" / "kb-gate"
 SOCK = GATE_DIR / "router.sock"
 LOG = GATE_DIR / "router-log.jsonl"
 SPAWN_MARK = GATE_DIR / "router-spawn"
-KEY_FILE = Path.home() / ".config" / "typesafe" / "api_key"
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
 LOCAL_TIMEOUT = 0.3
 JEV_TIMEOUT = 1.0
@@ -108,12 +106,13 @@ def previous_turn(transcript: str | None, chars: int) -> str:
 
 
 def jev_p(message: str, prev: str, kb_text: str, cfg: dict, timeout: float = JEV_TIMEOUT) -> float | None:
-    if not KEY_FILE.exists():
+    key = kb_config.jev_key()
+    if not key:
         return None
     body = json.dumps({"model": cfg["model"], "questions": cfg["questions"],
                        "state": {"kb": kb_text, "previous_turn": prev or "(none)", "user_message": message}}).encode()
     req = urllib.request.Request(JEV_URL, body, {"Content-Type": "application/json",
-                                                 "Authorization": f"Bearer {KEY_FILE.read_text().strip()}"})
+                                                 "Authorization": f"Bearer {key}"})
     try:
         answers = json.loads(urllib.request.urlopen(req, timeout=timeout).read())["answers"]
         c = cfg["combiner"]
@@ -124,24 +123,33 @@ def jev_p(message: str, prev: str, kb_text: str, cfg: dict, timeout: float = JEV
 
 
 def decide(message: str, transcript: str | None, kb_root: Path) -> dict | None:
-    """Route decision with provenance, or None when no router is available."""
+    """Route decision with provenance, or None when no router answers (the caller falls back to keywords).
+
+    Modes (kb_config `features.router`): cascade = local model, Jev for its uncertain band · local = local model
+    only · jev = Jev for every message, local model if Jev fails · off = None."""
     mode = kb_config.feature("router", kb_root) if (kb_root / "index.json").exists() else "off"
     if mode == "off":
         return None
     t0 = time.perf_counter()
+    cfg = kb_config.load(kb_root)["router"]
     local_cfg = json.loads((HERE / "kb-router-local.json").read_text())
     jev_cfg = json.loads((HERE / "kb-router.json").read_text())
-    p_local = local_p(message)
-    out: dict = {"p_local": p_local}
-    uncertain = p_local is None or abs(_logit(p_local) - _logit(local_cfg["cut"])) <= local_cfg["band"]
-    if not uncertain:
-        out.update(route=p_local >= local_cfg["cut"], source="local")
+    band = local_cfg["band"] if cfg["band"] is None else cfg["band"]
+
+    def ask_jev() -> float | None:
+        prev = previous_turn(transcript, jev_cfg["prev_chars"])
+        return jev_p(message, prev, kb_summary(kb_root, jev_cfg["docs_per_folder"]), jev_cfg, cfg["jev_timeout_s"])
+
+    out: dict = {"mode": mode}
+    p_local = None if mode == "jev" else local_p(message, cfg["local_timeout_s"])
+    uncertain = p_local is None or abs(_logit(p_local) - _logit(local_cfg["cut"])) <= band
+    if mode != "jev" and not uncertain:
+        out.update(p_local=p_local, route=p_local >= local_cfg["cut"], source="local")
     else:
-        p_jev = None
-        if mode != "local":
-            prev = previous_turn(transcript, jev_cfg["prev_chars"])
-            p_jev = jev_p(message, prev, kb_summary(kb_root, jev_cfg["docs_per_folder"]), jev_cfg)
-        out["p_jev"] = p_jev
+        p_jev = ask_jev() if mode in ("cascade", "jev") else None
+        if p_jev is None and mode == "jev":
+            p_local = local_p(message, cfg["local_timeout_s"])
+        out.update(p_local=p_local, p_jev=p_jev)
         if p_jev is not None:
             out.update(route=p_jev >= jev_cfg["combiner"]["cut"], source="jev")
         elif p_local is not None:

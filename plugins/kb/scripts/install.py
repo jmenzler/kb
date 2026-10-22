@@ -89,8 +89,11 @@ def check(settings_file: Path) -> tuple[str, bool]:
     for tool, why in OPTIONAL.items():
         if not shutil.which(tool) and not any(p.exists() for p in KNOWN_LOCATIONS.get(tool, [])):
             lines.append(f"optional, missing: {tool} — {why}")
-    if not (Path.home() / ".config" / "typesafe" / "api_key").exists():
-        lines.append("optional, missing: ~/.config/typesafe/api_key — router runs local-only (no Jev)")
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import kb_config
+    if not kb_config.jev_key():
+        jev = kb_config.DEFAULTS["jev"]
+        lines.append(f"optional, missing: TypeSafe key (${jev['key_env']} or {jev['key_file']}) — router runs local-only")
     if not Path("/usr/share/dict/words").exists():
         lines.append("optional, missing: /usr/share/dict/words — keyword fallback loses its jargon signal")
     return ("\n".join(lines) or "plugin enabled, no legacy hooks, all tools present"), ok

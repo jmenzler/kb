@@ -92,3 +92,37 @@ def test_previous_turn_reads_last_assistant_text(tmp_path, monkeypatch):
         {"type": "user", "message": {"content": "hi"}},
         {"type": "assistant", "message": {"content": [{"type": "text", "text": "Should I commit?"}]}}]))
     assert kb_router.previous_turn(str(t), 100) == "Should I commit?"
+
+
+def test_jev_mode_skips_local_model(kb, monkeypatch):
+    monkeypatch.setenv("KB_ROUTER", "jev")
+    monkeypatch.setattr(kb_router, "local_p", lambda *a, **k: pytest.fail("local model must not be called"))
+    monkeypatch.setattr(kb_router, "jev_p", lambda *a, **k: 0.9)
+    d = kb_router.decide("anything", None, kb)
+    assert d["route"] is True and d["source"] == "jev"
+
+
+def test_jev_mode_falls_back_to_local_when_jev_fails(kb, monkeypatch):
+    monkeypatch.setenv("KB_ROUTER", "jev")
+    monkeypatch.setattr(kb_router, "jev_p", lambda *a, **k: None)
+    monkeypatch.setattr(kb_router, "local_p", _local(0.95))
+    assert kb_router.decide("anything", None, kb)["source"] == "local-fallback"
+
+
+def test_cascade_is_the_default_and_on_is_an_alias(kb, monkeypatch):
+    for mode in (None, "on", "cascade"):
+        if mode:
+            monkeypatch.setenv("KB_ROUTER", mode)
+        monkeypatch.setattr(kb_router, "local_p", _local(0.5))
+        monkeypatch.setattr(kb_router, "jev_p", lambda *a, **k: 0.9)
+        assert kb_router.decide("x", None, kb)["source"] == "jev"
+        monkeypatch.setattr(kb_router, "local_p", _local(0.99))
+        assert kb_router.decide("x", None, kb)["source"] == "local"
+
+
+def test_band_comes_from_config(kb, monkeypatch):
+    (kb / ".kb").mkdir(exist_ok=True)
+    (kb / ".kb" / "config.json").write_text(json.dumps({"router": {"band": 0.0}}))
+    monkeypatch.setattr(kb_router, "local_p", _local(0.5))
+    monkeypatch.setattr(kb_router, "jev_p", lambda *a, **k: pytest.fail("band 0 means the local model always decides"))
+    assert kb_router.decide("x", None, kb)["source"] == "local"

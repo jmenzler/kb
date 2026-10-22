@@ -2,9 +2,11 @@
 """One KB-root resolver and one switchboard for every automatic KB feature.
 
 Layers, highest wins: env > repo `.claude/knowledge/.kb/config.json` > global `~/.claude/kb-config.json` > defaults.
-  env   KB_HOOKS=off (everything off) · KB_ROUTER=on|local|off · KB_CAPTURE_FORK (set inside capture forks: all off)
-Features: index_inject · prompt_gate (gate|hint|off) · router (on|local|off) · related_docs · topic_validation ·
-capture · clean_nudge (legacy `clean.enabled` maps onto it). A directory without `index.json` enables nothing.
+  env   KB_HOOKS=off (everything off) · KB_ROUTER=cascade|local|jev|off · KB_CAPTURE_FORK (set inside capture forks: all off)
+Features: index_inject · prompt_gate (gate|hint|off) · router (cascade|local|jev|off; "on" = cascade) ·
+related_docs · topic_validation · capture · clean_nudge (legacy `clean.enabled` maps onto it).
+Blocks: `router` (band, timeouts) · `capture` (thresholds, fork model) · `jev` (where the TypeSafe key lives; global
+config and env only, never a repo file). A directory without `index.json` enables nothing.
 
   python3 kb_config.py show [dir]                 effective config with the source of every value
   python3 kb_config.py root [--feature NAME]      print the KB root; exit 1 if none or the feature is off
@@ -20,10 +22,12 @@ from pathlib import Path
 
 GLOBAL_CONFIG = Path.home() / ".claude" / "kb-config.json"
 DEFAULTS = {
-    "features": {"index_inject": True, "prompt_gate": "gate", "router": "on", "related_docs": True,
+    "features": {"index_inject": True, "prompt_gate": "gate", "router": "cascade", "related_docs": True,
                  "topic_validation": True, "capture": True, "clean_nudge": True},
+    "router": {"band": None, "local_timeout_s": 0.3, "jev_timeout_s": 1.0},
     "capture": {"min_turns": 5, "idle_minutes": 45, "cold_minutes": 55, "inbox_cap": 30,
-                "daily_soft_cap_usd": 3.0, "max_budget_usd": 1.0},
+                "daily_soft_cap_usd": 3.0, "max_budget_usd": 1.0, "model": "session"},
+    "jev": {"key_env": "TYPESAFE_API_KEY", "key_file": "~/.config/typesafe/api_key"},
     "related_hops": 2,
 }
 OFF = {"prompt_gate": "off", "router": "off"}
@@ -85,7 +89,7 @@ def _read(path: Path) -> dict:
 
 def _layer(raw: dict) -> dict:
     """Only the keys this module owns, with the legacy clean.enabled folded into features.clean_nudge."""
-    out = {k: dict(raw[k]) for k in ("features", "capture") if isinstance(raw.get(k), dict)}
+    out = {k: dict(raw[k]) for k in ("features", "router", "capture", "jev") if isinstance(raw.get(k), dict)}
     if "related_hops" in raw:
         out["related_hops"] = raw["related_hops"]
     clean = raw.get("clean")
@@ -101,8 +105,9 @@ def _env_layer() -> dict:
 
 
 def _layers(root: Path) -> list[tuple[str, dict]]:
-    return [("default", DEFAULTS), ("global", _layer(_read(GLOBAL_CONFIG))),
-            ("repo", _layer(_read(Path(root) / ".kb" / "config.json"))), ("env", _env_layer())]
+    repo = _layer(_read(Path(root) / ".kb" / "config.json"))
+    repo.pop("jev", None)  # a repo must not redirect where the API key is read from
+    return [("default", DEFAULTS), ("global", _layer(_read(GLOBAL_CONFIG))), ("repo", repo), ("env", _env_layer())]
 
 
 def load(root: Path) -> dict:
@@ -117,7 +122,17 @@ def load(root: Path) -> dict:
 
 
 def feature(name: str, root: Path):
-    return load(root)["features"][name]
+    value = load(root)["features"][name]
+    return "cascade" if name == "router" and value == "on" else value
+
+
+def jev_key() -> str | None:
+    """TypeSafe API key from the configured env var, else the configured key file; None when absent."""
+    cfg = load(Path("/nonexistent"))["jev"]
+    if os.getenv(cfg["key_env"]):
+        return os.environ[cfg["key_env"]].strip()
+    key_file = Path(cfg["key_file"]).expanduser()
+    return key_file.read_text().strip() if key_file.exists() else None
 
 
 def enabled(name: str, root: Path) -> bool:
@@ -131,10 +146,10 @@ def enabled(name: str, root: Path) -> bool:
 def show(root: Path) -> str:
     lines = [f"KB root: {root}" + ("" if (Path(root) / "index.json").exists() else "  (no index.json: all off)")]
     layers = _layers(root)
-    for section in ("features", "capture"):
+    for section in ("features", "router", "capture", "jev"):
         for key in DEFAULTS[section]:
             source, value = next((n, l[section][key]) for n, l in reversed(layers) if key in l.get(section, {}))
-            lines.append(f"{section}.{key} = {value}  ({source})" if section == "capture" else f"{key} = {value}  ({source})")
+            lines.append(f"{key} = {value}  ({source})" if section == "features" else f"{section}.{key} = {value}  ({source})")
     return "\n".join(lines)
 
 

@@ -520,3 +520,12 @@ def test_stop_keeps_note_written_concurrently(gate, tmp_path, monkeypatch):
     hook.handle("stop", {"session_id": "s1", "transcript_path": str(t), "cwd": str(repo)}, now=NOW)
     st = kb_capture.load_state("s1")
     assert st["note"] == "[kb-capture] done" and st["fork"] is None and st["idle_pid"] == 5
+
+
+def test_capture_model_override(gate, tmp_path):
+    inbox = make_inbox(tmp_path)
+    (inbox.parent / ".kb").mkdir()
+    (inbox.parent / ".kb" / "config.json").write_text(json.dumps({"capture": {"model": "claude-haiku-5-5"}}))
+    assert kb_capture.fork_model(inbox, long_session(2)) == "claude-haiku-5-5"
+    (inbox.parent / ".kb" / "config.json").write_text(json.dumps({"capture": {"model": "session"}}))
+    assert kb_capture.fork_model(inbox, long_session(2)) == "claude-opus-5-5[1m]"

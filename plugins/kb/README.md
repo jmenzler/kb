@@ -303,7 +303,7 @@ needs it to fork with the conversation) and removes old KB hook registrations fr
 `kb@skills-dir`), single features with the switchboard below.
 `--check` reports missing hooks and tools. Required: `uv` (router daemon), `claude`
 (capture forks), `git` (KB root). Optional: `graphify` (code graph), `transc` (backstory
-source), a TypeSafe key at `~/.config/typesafe/api_key` (Jev; without it the router stays
+source), a TypeSafe key in `$TYPESAFE_API_KEY` or `~/.config/typesafe/api_key` (Jev; without it the router stays
 local), `/usr/share/dict/words` (without it the keyword fallback has no jargon signal).
 
 ---
@@ -357,7 +357,7 @@ one-line `[kb-capture]` note, with a warning once the day's forks cost more than
 
 `scripts/kb_config.py` is the switchboard every hook reads. Layers, highest wins:
 
-1. env — `KB_HOOKS=off` (everything off), `KB_ROUTER=on|local|off`, `KB_CAPTURE_FORK` (set inside capture forks: everything off)
+1. env — `KB_HOOKS=off` (everything off), `KB_ROUTER=cascade|local|jev|off`, `KB_CAPTURE_FORK` (set inside capture forks: everything off)
 2. repo — `.claude/knowledge/.kb/config.json`
 3. global — `~/.claude/kb-config.json`
 4. built-in defaults
@@ -369,24 +369,47 @@ Every key is optional. Defaults:
   "features": {
     "index_inject": true,
     "prompt_gate": "gate",
-    "router": "on",
+    "router": "cascade",
     "related_docs": true,
     "topic_validation": true,
     "capture": true,
     "clean_nudge": true
   },
+  "router": {"band": null, "local_timeout_s": 0.3, "jev_timeout_s": 1.0},
   "capture": {
     "min_turns": 5, "idle_minutes": 45, "cold_minutes": 55, "inbox_cap": 30,
-    "daily_soft_cap_usd": 3.0, "max_budget_usd": 1.0
+    "daily_soft_cap_usd": 3.0, "max_budget_usd": 1.0, "model": "session"
   },
+  "jev": {"key_env": "TYPESAFE_API_KEY", "key_file": "~/.config/typesafe/api_key"},
   "related_hops": 2
 }
 ```
 
-`prompt_gate`: `gate` (read list + enforcement), `hint` (advisory `[KB HINT]` only) or
-`off`. `router`: `on`, `local` (never Jev) or `off` (keywords only). `clean_nudge` also
-accepts the legacy `clean.enabled`. `max_budget_usd` caps one fork; `daily_soft_cap_usd`
-only warns. A directory without `index.json` enables nothing.
+**Which model decides each prompt** (`features.router`):
+
+| mode | how a prompt is classified | data leaving the machine | typical latency |
+|---|---|---|---|
+| `cascade` (default; `on` is an alias) | local Qwen3-Embedding classifier; Jev only when it is unsure (`router.band`, logit distance from the cut; `null` = the fitted 0.69) | the unsure ~30–40% | ~30 ms local, ~250 ms with Jev |
+| `local` | local classifier only | nothing | ~30 ms |
+| `jev` | TypeSafe Jev for every prompt; local classifier if Jev fails | every prompt | ~250 ms |
+| `off` | keyword matching only | nothing | <10 ms |
+
+The local classifier is fitted on Qwen3-Embedding-0.6B vectors and the Jev combiner on `jev-1.13.0` answers
+(`scripts/kb-router-local.json`, `scripts/kb-router.json`); swapping either model needs a refit, so they are
+not config keys. Without a TypeSafe key, `cascade` and `jev` fall back to the local classifier.
+
+**TypeSafe key** — never put the key itself in a config file. `jev.key_env` names the environment variable to
+read it from (default `TYPESAFE_API_KEY`); otherwise it is read from `jev.key_file`. The `jev` block is honoured
+only in the global config and env, never in a repo's `.kb/config.json`, so a repo cannot redirect where the key
+is read from.
+
+**Capture fork model** (`capture.model`): `session` (default) runs the fork on the session's own model, which
+reuses its prompt cache (~$0.10–0.25 per fork); any other value (e.g. `claude-haiku-5-5`) is passed to
+`--model` as-is and pays for the full uncached transcript.
+
+`prompt_gate`: `gate` (read list + enforcement), `hint` (advisory `[KB HINT]` only) or `off`. `clean_nudge`
+also accepts the legacy `clean.enabled`. `max_budget_usd` caps one fork; `daily_soft_cap_usd` only warns. A
+directory without `index.json` enables nothing.
 
 The KB root is resolved the same way for every hook: `KB_ROOT` env, else the main
 checkout of the git common dir (worktrees share one KB), else the cwd. Inspect the
