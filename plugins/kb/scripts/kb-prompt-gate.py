@@ -255,13 +255,17 @@ def _prompt(payload: dict) -> None:
         # A skipped message that still matches docs keeps an advisory hint.
         tier = routed if routed == "GATE" else ("HINT" if docs else None)
     if tier == "GATE" and kb_config.feature("prompt_gate", kb_root) == "hint":
-        tier = "HINT" if docs else None
+        tier = "HINT"
     if tier is None:
         return
     if tier == "HINT":
-        context = ("[KB HINT] This message may touch these knowledge-base docs (relative to "
-                   ".claude/knowledge/). If it does, invoke the kb:base skill and read "
-                   "them before answering:\n" + "\n".join(f"  {d}" for d in docs))
+        if docs:
+            context = ("[KB HINT] This message may touch these knowledge-base docs (relative to "
+                       ".claude/knowledge/). If it does, invoke the kb:base skill and read "
+                       "them before answering:\n" + "\n".join(f"  {d}" for d in docs))
+        else:
+            context = ("[KB HINT] This message may touch the knowledge base. Check the KB index: if it covers "
+                       "this, invoke the kb:base skill and read those docs first; if not, go to the code.")
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit", "additionalContext": context}}))
         return

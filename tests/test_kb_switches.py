@@ -257,3 +257,13 @@ def test_stable_link_survives_running_through_the_link(tmp_path):
     via_link = tmp_path / ".claude" / "kb" / "scripts" / "inject-kb-index.sh"
     subprocess.run(["bash", str(via_link)], cwd=tmp_path, capture_output=True, text=True, env=env)
     assert (tmp_path / ".claude" / "kb").resolve() == SCRIPTS.parent.resolve()
+
+
+def test_hint_mode_without_keyword_docs_still_points_at_the_index(tmp_path, monkeypatch, capsys):
+    kb = make_kb(tmp_path / "h2", {"prompt_gate": "hint"})
+    mod, _ = _gate_module(monkeypatch, kb)
+    import kb_router
+    monkeypatch.setattr(kb_router, "decide", lambda *a, **k: {"route": True, "source": "local", "p_local": 0.9})
+    mod._prompt({"session_id": "s", "prompt": "how is the zebra quota handled?"})
+    out = capsys.readouterr().out
+    assert "KB HINT" in out and "index" in out and "KB MATCH" not in out
