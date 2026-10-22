@@ -1,0 +1,150 @@
+{
+ "model": "jev-1.13.0",
+ "questions": {
+  "needs_kb": {
+   "type": "noul",
+   "instructions": "Before replying to `user_message`, does the assistant need internal knowledge from this project's knowledge base, described in `kb`?",
+   "criteria": {
+    "true": {
+     "meaning": "The reply depends on this project's own facts, decisions, status, designs, rules or results, or on how the project's own code or system works; or the message states or corrects a project fact (a date, status, number or decision) that must be checked against the KB; or it asks about the user's own situation in the project; or it asks for output that must agree with project facts or rules.",
+     "examples": [
+      "\"say starting 2027 not february\" after the assistant asked about committing: corrects a project date",
+      "\"okay make the change\" when `previous_turn` proposed editing a project document or design: the edit must follow project facts",
+      "\"check the kb and the trading system for whether this is the right fix\": asks to consult project knowledge"
+     ]
+    },
+    "false": {
+     "meaning": "The reply can come from generic training knowledge, from `previous_turn`, or needs no knowledge at all: generic coding or textbook questions, commands to run or change something, acknowledgements, layout requests, questions about the assistant's own tools, or replies that only pick an option or approve without stating any new fact.",
+     "examples": [
+      "\"ok commit that and push\": a command on git, no project knowledge",
+      "\"why did the login put me in the wrong account\": environment or tooling trouble",
+      "\"second.\" after the assistant offered options: picks an option, states no fact"
+     ]
+    }
+   }
+  },
+  "states_project_fact": {
+   "type": "noul",
+   "instructions": "Does `user_message` state or correct a lasting fact about this project or its user (a date, status, decision, number or result) that is not already in `previous_turn`?",
+   "criteria": {
+    "true": {
+     "meaning": "Yes.",
+     "examples": [
+      "\"applied to those two firms\": a status change",
+      "\"feb/march 2027\" answering when the user can start: a lasting date"
+     ]
+    },
+    "false": {
+     "meaning": "No.",
+     "examples": [
+      "\"it says briefly\": what a form shows right now, not a lasting fact",
+      "\"all done, just private?\": repo state, not a project fact"
+     ]
+    }
+   }
+  },
+  "asks_project_knowledge": {
+   "type": "noul",
+   "instructions": "Does `user_message` ask about this specific project's facts, decisions, rules, design, results or how its own code works, as opposed to general knowledge?",
+   "criteria": {
+    "true": {
+     "meaning": "Yes.",
+     "examples": [
+      "\"why does our pipeline retry this step twice?\"",
+      "\"what roles am i most suitable for?\""
+     ]
+    },
+    "false": {
+     "meaning": "No.",
+     "examples": [
+      "\"what does std::move do?\"",
+      "\"how do I fix this segfault?\" with no project-specific design involved"
+     ]
+    }
+   }
+  },
+  "is_command_or_tooling": {
+   "type": "noul",
+   "instructions": "Is `user_message` mainly a command to do something (run, commit, open, fix, continue) or about the assistant's own tools, setup or behaviour?",
+   "criteria": {
+    "true": {
+     "meaning": "Yes.",
+     "examples": [
+      "\"run the tests and commit\"",
+      "\"the hook printed nothing again, check the settings file\""
+     ]
+    },
+    "false": {
+     "meaning": "No.",
+     "examples": [
+      "\"rewrite the summary bullet to follow our wording rules\": produces project content, not a tool command",
+      "\"add the new firm to the target list\": changes project content"
+     ]
+    }
+   }
+  },
+  "generic_knowledge": {
+   "type": "noul",
+   "instructions": "Could a skilled programmer who has never seen this project answer `user_message` well from general knowledge alone?",
+   "criteria": {
+    "true": {
+     "meaning": "Yes.",
+     "examples": [
+      "\"what is the time complexity of a hash map lookup?\"",
+      "\"how does Raft elect a leader?\""
+     ]
+    },
+    "false": {
+     "meaning": "No.",
+     "examples": [
+      "\"how does our protocol's leader election differ from Raft?\"",
+      "\"is my GPA high enough for this firm?\""
+     ]
+    }
+   }
+  },
+  "continues_last_turn": {
+   "type": "noul",
+   "instructions": "Does `user_message` only react to `previous_turn` (answer its question, pick an offered option, approve, or ask about what was just said) without adding a new project fact?",
+   "criteria": {
+    "true": {
+     "meaning": "Yes.",
+     "examples": [
+      "\"go through them one by one\" after a list of edits",
+      "\"explain what you changed there\""
+     ]
+    },
+    "false": {
+     "meaning": "No.",
+     "examples": [
+      "\"ok, but the deadline moved to friday\": adds a new project fact",
+      "\"now also check the risk limits doc\": a new request"
+     ]
+    }
+   }
+  }
+ },
+ "combiner": {
+  "names": [
+   "needs_kb",
+   "states_project_fact",
+   "asks_project_knowledge",
+   "is_command_or_tooling",
+   "generic_knowledge",
+   "continues_last_turn"
+  ],
+  "coef": [
+   6.141477183373305,
+   2.3010529710219876,
+   0.5367272919165765,
+   -3.97983580532342,
+   1.4000955559257582,
+   -0.6463162023308809
+  ],
+  "intercept": -2.9529113259667303,
+  "cut": 0.491
+ },
+ "prev_chars": 1200,
+ "docs_per_folder": 10,
+ "source": "offline router fit, variant p2"
+}

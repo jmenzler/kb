@@ -1,0 +1,5 @@
+{
+  "name": "kb-marketplace",
+  "owner": {"name": "jmenzler"},
+  "plugins": [{"name": "kb", "source": "./plugins/kb", "description": "Project knowledge bases for Claude Code"}]
+}

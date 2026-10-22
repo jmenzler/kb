@@ -1,0 +1,9 @@
+{
+  "name": "kb",
+  "version": "0.1.0",
+  "description": "Project knowledge bases for Claude Code: routing gate (local model + Jev), related-docs graph, topic validation, clean/capture workflows and automatic background capture.",
+  "author": {
+    "name": "jmenzler"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,6 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+# private: eval harness (real chat transcripts, labels, private KB snapshots) and dev notes
+dev/
