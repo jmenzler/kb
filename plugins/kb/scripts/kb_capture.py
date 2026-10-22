@@ -23,6 +23,7 @@ import kb_config
 HERE = Path(__file__).resolve().parent
 GATE_DIR = Path.home() / ".claude" / "kb-gate"
 CLAUDE = shutil.which("claude") or str(Path.home() / ".local" / "bin" / "claude")
+CLAUDE_JSON = Path.home() / ".claude.json"
 SWEEP_AGE = 30 * 86400
 TEMP_MARKERS = ("/private/var/folders/", "/var/folders/", "/tmp/", "/private/tmp/", "kbeval")
 
@@ -230,6 +231,20 @@ def _note(record: dict, drafts: list[Path]) -> str:
     return f"[kb-capture] background fork captured {len(drafts)} draft(s) from the previous messages into the KB inbox: {titles}"
 
 
+def restored_usage(resume_id: str) -> tuple[float, dict]:
+    """Cost and per-model usage Claude Code restores into a resumed session; the fork reports them on top of its own."""
+    try:
+        projects = json.loads(CLAUDE_JSON.read_text()).get("projects", {})
+    except (OSError, json.JSONDecodeError):
+        return 0.0, {}
+    entry = next((p for p in projects.values() if p.get("lastSessionId") == resume_id), {})
+    return entry.get("lastCost") or 0.0, entry.get("lastModelUsage") or {}
+
+
+def _usage_delta(usage: dict, prior: dict, key: str) -> int:
+    return sum(u.get(key, 0) - prior.get(model, {}).get(key, 0) for model, u in usage.items())
+
+
 def run_fork(sid: str, trigger: str, resume_id: str, runner: Callable = subprocess.run) -> dict:
     """Run the fork to completion, then log it, leave a note for the main session and release the lock."""
     st = load_state(sid)
@@ -242,14 +257,17 @@ def run_fork(sid: str, trigger: str, resume_id: str, runner: Callable = subproce
     try:
         cmd = fork_command(resume_id, st["model"], [Path(st["inbox"]), results], build_prompt(st, result),
                            settings(Path(st["inbox"]))["max_budget_usd"])
+        baseline = restored_usage(resume_id)
         proc = runner(cmd, cwd=st["cwd"], stdin=subprocess.DEVNULL, capture_output=True, text=True,
                       env={**os.environ, "KB_CAPTURE_FORK": "1"})
         out = json.loads(proc.stdout)
         if not isinstance(out, dict):
             raise ValueError(f"unexpected fork output: {proc.stdout[:100]!r}")
-        usage = next(iter(out.get("modelUsage", {}).values()), {})
-        record.update(cost=out.get("total_cost_usd", 0.0), cache_read=usage.get("cacheReadInputTokens", 0),
-                      cache_create=usage.get("cacheCreationInputTokens", 0), subtype=out.get("subtype"))
+        prior_cost, prior_usage = baseline
+        usage = out.get("modelUsage", {})
+        record.update(cost=out.get("total_cost_usd", 0.0) - prior_cost, subtype=out.get("subtype"),
+                      cache_read=_usage_delta(usage, prior_usage, "cacheReadInputTokens"),
+                      cache_create=_usage_delta(usage, prior_usage, "cacheCreationInputTokens"))
         if out.get("is_error") or out.get("subtype") != "success" or proc.returncode:
             record["error"] = out.get("subtype") or f"exit {proc.returncode}"
         if result.exists():
@@ -283,7 +301,7 @@ def day_spend(now: float) -> tuple[float, int]:
             r = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if datetime.date.fromtimestamp(r.get("ts", 0)) == today:
+        if "cost" in r and datetime.date.fromtimestamp(r.get("ts", 0)) == today:
             costs.append(r.get("cost") or 0.0)
     return sum(costs), len(costs)
 

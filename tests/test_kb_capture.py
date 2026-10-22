@@ -147,6 +147,7 @@ NOW = time.time()  # sweep compares against real file mtimes
 @pytest.fixture
 def gate(tmp_path, monkeypatch):
     monkeypatch.setattr(kb_capture, "GATE_DIR", tmp_path / "gate")
+    monkeypatch.setattr(kb_capture, "CLAUDE_JSON", tmp_path / "no-claude.json")
     monkeypatch.setattr(kb_capture, "TEMP_MARKERS", ("kbeval",))  # pytest's tmp_path itself lives under /var/folders
     monkeypatch.delenv("KB_CAPTURE_FORK", raising=False)
     return tmp_path / "gate"
@@ -257,6 +258,32 @@ def test_run_fork_success_logs_and_notes(gate, tmp_path):
     assert st["fork"] is None and "Fee overflow is UB" in st["note"]
 
 
+def test_run_fork_subtracts_cost_restored_from_resumed_session(gate, tmp_path, monkeypatch):
+    t = tmp_path / "s1.jsonl"
+    t.write_text("")
+    started_state(gate, tmp_path, t)
+    claude_json = tmp_path / ".claude.json"
+    claude_json.write_text(json.dumps({"projects": {str(tmp_path): {
+        "lastSessionId": "s1", "lastCost": 100.0,
+        "lastModelUsage": {"m": {"cacheReadInputTokens": 600000, "cacheCreationInputTokens": 9000}}}}}))
+    monkeypatch.setattr(kb_capture, "CLAUDE_JSON", claude_json)
+    cumulative = {**SPIKE, "total_cost_usd": 100.12,
+                  "modelUsage": {"m": {"cacheReadInputTokens": 1290000, "cacheCreationInputTokens": 18900}}}
+    rec = kb_capture.run_fork("s1", "session-end", "s1", runner=fake_run({"drafts": [], "skipped": []}, cumulative))
+    assert rec["cost"] == pytest.approx(0.12) and rec["cache_read"] == 690000 and rec["cache_create"] == 9900
+
+
+def test_run_fork_ignores_stored_cost_of_other_session(gate, tmp_path, monkeypatch):
+    t = tmp_path / "s1.jsonl"
+    t.write_text("")
+    started_state(gate, tmp_path, t)
+    claude_json = tmp_path / ".claude.json"
+    claude_json.write_text(json.dumps({"projects": {str(tmp_path): {"lastSessionId": "other", "lastCost": 100.0}}}))
+    monkeypatch.setattr(kb_capture, "CLAUDE_JSON", claude_json)
+    rec = kb_capture.run_fork("s1", "idle", "s1", runner=fake_run({"drafts": [], "skipped": []}, SPIKE))
+    assert rec["cost"] == 0.12 and rec["cache_read"] == 690000
+
+
 def test_run_fork_prompt_names_segment_start(gate, tmp_path):
     t = tmp_path / "s1.jsonl"
     t.write_text("")
@@ -293,6 +320,14 @@ def test_note_taken_once(gate):
     kb_capture.save_state("s1", {"note": "[kb-capture] x"})
     assert kb_capture.take_note("s1", NOW) == "[kb-capture] x"
     assert kb_capture.take_note("s1", NOW) is None
+
+
+def test_day_spend_counts_only_forks(gate):
+    gate.mkdir(parents=True)
+    rows = [{"ts": NOW - 10, "cost": 1.5, "error": None}, {"ts": NOW - 9, "mode": ["stop"], "error": "FileNotFoundError"},
+            {"ts": NOW - 8, "sid": "s", "trigger": "idle", "skipped_fork": "cold", "error": None}]
+    (gate / "capture-log.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert kb_capture.day_spend(NOW) == (1.5, 1)
 
 
 def test_note_soft_cap_warning(gate):
@@ -361,6 +396,13 @@ def test_stop_skips_headless(gate, tmp_path):
     t = write_transcript(tmp_path / "s1.jsonl", session(entrypoint="sdk-cli"))
     hook.handle("stop", {"session_id": "s1", "transcript_path": str(t), "cwd": "/Users/x/repo"}, now=NOW)
     assert kb_capture.load_state("s1") == {}
+
+
+def test_stop_with_deleted_transcript_is_silent(gate, tmp_path):
+    hook = load_hook()
+    hook.handle("stop", {"session_id": "s1", "transcript_path": str(tmp_path / "gone.jsonl"), "cwd": "/Users/x/repo"},
+                now=NOW)
+    assert kb_capture.load_state("s1") == {} and not (gate / "capture-log.jsonl").exists()
 
 
 def test_session_end_starts_fork_when_due(gate, tmp_path, monkeypatch):

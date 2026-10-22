@@ -31,7 +31,10 @@ def _kill(pid: int | None, sid: str) -> None:
 
 
 def _stop(sid: str, payload: dict, now: float) -> None:
-    entries = kb_capture.transcript_entries(Path(payload["transcript_path"]))
+    transcript = Path(payload["transcript_path"])
+    if not transcript.exists():  # headless runs whose config dir was already removed
+        return
+    entries = kb_capture.transcript_entries(transcript)
     if kb_capture.skip_reason(payload, entries):
         return
     project = kb_capture.launch_cwd(entries) or Path(payload["cwd"])
