@@ -9,7 +9,7 @@
 [![Dependencies: stdlib](https://img.shields.io/badge/dependencies-stdlib_only-success)](#requirements)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[Overview](#overview) · [Features](#features) · [Getting started](#getting-started) · [How it works](#how-it-works) · [Configuration](#configuration) · [Privacy](#privacy)
+[Overview](#overview) · [Features](#features) · [Does it help?](#does-it-help) · [Getting started](#getting-started) · [How it works](#how-it-works) · [Configuration](#configuration) · [Privacy](#privacy)
 
 </div>
 
@@ -42,6 +42,24 @@ back into the knowledge base on its own.
   source code has moved.
 - **Graph queries** — ask what calls X or how A and B connect across the code graph and the topic graph.
 - **Switchable** — every feature can be turned off or tuned globally, per repository or per environment variable.
+
+## Does it help?
+
+On questions the code alone cannot answer, kb lifts answer quality by **+0.34** on a 0–1 scale
+(95% CI +0.04 to +0.63) and finds **53% more** of the key facts (recall 0.57 → 0.87), with no measurable loss on
+questions the code does answer, at about 29% more cost per question.
+
+| Questions | Metric | Without kb → with kb (`hint`) | 95% CI |
+|---|---|---|---|
+| Code can't answer (16) | quality | +0.34 | [+0.04, +0.63] |
+| Code can't answer (16) | recall | 0.57 → 0.87 | [+0.11, +0.49] |
+| Code can answer (31) | quality | −0.03 (no loss shown) | [−0.10, +0.04] |
+| All (54) | recall | 0.77 → 0.86 | [+0.02, +0.17] |
+
+> [!NOTE]
+> A single A/B benchmark: one repository, Claude Haiku answering, 54 code-verified questions written by the
+> knowledge base's author, paired bootstrap CIs. Answers were scored by an LLM judge; disagreements with a second
+> judge were settled against the code and knowledge base, not by a human.
 
 ## Getting started
 
