@@ -1,6 +1,6 @@
 <div align="center">
 
-# kb
+# kb (knowledge-base)
 
 **A knowledge base Claude Code actually uses.**
 
