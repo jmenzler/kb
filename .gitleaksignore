@@ -1,0 +1,6 @@
+dc213dbf79e27953431259c5bde0ddf4fbcc939c:tests/test_kb_redact.py:jwt:21
+dc213dbf79e27953431259c5bde0ddf4fbcc939c:tests/test_kb_redact.py:generic-api-key:36
+dc213dbf79e27953431259c5bde0ddf4fbcc939c:tests/test_kb_redact.py:generic-api-key:37
+dc213dbf79e27953431259c5bde0ddf4fbcc939c:tests/test_kb_redact.py:gcp-api-key:19
+dc213dbf79e27953431259c5bde0ddf4fbcc939c:tests/test_kb_redact.py:slack-bot-token:17
+dc213dbf79e27953431259c5bde0ddf4fbcc939c:tests/test_kb_redact.py:stripe-access-token:20
